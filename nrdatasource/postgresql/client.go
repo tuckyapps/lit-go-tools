@@ -11,7 +11,7 @@ import (
 // Init connects to the database server
 func Init(address, username, password string, dbName string) (db *sqlx.DB, err error) {
 
-	db, err = sqlx.Open("nrpq", fmt.Sprintf("postgres://%s:%s@%v/%s", username, password, address, dbName))
+	db, err = sqlx.Open("nrpostgres", fmt.Sprintf("postgres://%s:%s@%v/%s", username, password, address, dbName))
 	if err == nil {
 		err = db.Ping()
 	}
