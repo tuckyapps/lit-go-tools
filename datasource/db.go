@@ -49,7 +49,23 @@ func (g *Generic) New(config DBConfig) (db *sqlx.DB, err error) {
 			db.SetMaxOpenConns(config.MaxOpenConnections)
 			db.SetMaxIdleConns(config.MaxIdleConnections)
 			db.SetConnMaxLifetime(config.ConnectionLifetime)
+		} else {
+			return nil, err
 		}
+
+		// ping DB to check if it's OK
+		if err = db.Ping(); err != nil {
+			return
+		}
+
+		// if exists a DB, close it
+		if g.db != nil {
+			g.db.Close()
+		}
+
+		g.db = db
+		g.canLock = true
+		g.randFuncName = postgresql.RandFuncName()
 
 	case "mysql":
 		db, err = mysql.Init(
