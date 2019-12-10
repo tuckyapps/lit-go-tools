@@ -23,7 +23,7 @@ func TestBuildUpdateSetQuery(t *testing.T) {
 	witnesUserStr := "SET `password`='myhashedpassword',`address`='Luis Bonavita 1122',`id_user`=145,`city`='Montevideo',`country`='UY',`active`=true"
 
 	name := "Pepe"
-	email := "pepe@astropay.com"
+	email := "pepe@lit-night.com"
 	password := "myhashedpassword"
 	address := "Luis Bonavita 1122"
 	city := "Montevideo"
@@ -63,10 +63,10 @@ func TestBuildUpdateSetQuery(t *testing.T) {
 // test cases for BuildParametrizedUpdateSetQuery()
 func TestBuildParametrizedUpdateSetQuery(t *testing.T) {
 
-	witnesUserStr := "SET password=?,id_user=?,country=?,active=?"
+	witnessUserStr := "SET password=?,id_user=?,country=?,active=?"
 
 	name := "Pepe"
-	email := "pepe@astropay.com"
+	email := "pepe@lit-night.com"
 	password := "myhashedpassword"
 	country := "UY"
 
@@ -84,7 +84,7 @@ func TestBuildParametrizedUpdateSetQuery(t *testing.T) {
 	dirtyFields := []string{"Password", "ID", "Country", "Active"}
 	builtSetStr, err := BuildParametrizedUpdateSetQuery(user, dirtyFields)
 	if err == nil {
-		if builtSetStr != witnesUserStr {
+		if builtSetStr != witnessUserStr {
 			t.Errorf("BuildParametrizedUpdateSetQuery() returned a wrong string: %s", builtSetStr)
 		}
 	} else {
@@ -99,12 +99,89 @@ func TestBuildParametrizedUpdateSetQuery(t *testing.T) {
 	}
 }
 
+// test cases for BuildNamedParametersUpdateSetQuery()
+func TestBuildNamedParamersUpdateSetQuery(t *testing.T) {
+
+	witnessUserStr := "SET password=:password,id_user=:id_user,country=:country,active=:active"
+
+	name := "Pepe"
+	email := "pepe@lit-night.com"
+	password := "myhashedpassword"
+	country := "UY"
+
+	// test obj
+	user := User{
+		ID:       145,
+		Name:     &name,
+		Email:    &email,
+		Password: &password,
+		Country:  &country,
+		Active:   true,
+	}
+
+	// fields to update
+	dirtyFields := []string{"Password", "ID", "Country", "Active"}
+	builtSetStr, err := BuildNamedParametersUpdateSetQuery(user, dirtyFields)
+	if err == nil {
+		if builtSetStr != witnessUserStr {
+			t.Errorf("BuildNamedParametersUpdateSetQuery() returned a wrong string: %s", builtSetStr)
+		}
+	} else {
+		t.Errorf("BuildNamedParametersUpdateSetQuery() returned an error: %s", err.Error())
+	}
+
+	// fields to update with a wrong field
+	dirtyFieldsInvalid := []string{"Password", "Address", "ID", "Status"}
+	_, err = BuildNamedParametersUpdateSetQuery(user, dirtyFieldsInvalid)
+	if err == nil {
+		t.Errorf("BuildNamedParametersUpdateSetQuery() should have returned an error")
+	}
+}
+
+// test cases for BuildNamedParametersUpdateSetQuery2()
+func TestBuildNamedParamersUpdateSetQuery2(t *testing.T) {
+
+	witnessUserStr := "SET id_user=:id_user,password=:password,country=:country,active=:active"
+
+	name := "Pepe"
+	email := "pepe@lit-night.com"
+	password := "myhashedpassword"
+	country := "UY"
+
+	// test obj
+	user := User{
+		ID:       145,
+		Name:     &name,
+		Email:    &email,
+		Password: &password,
+		Country:  &country,
+		Active:   true,
+	}
+
+	// fields to update
+	dirtyFields := []string{"password", "id_user", "country", "active"}
+	builtSetStr, fields, err := BuildNamedParametersUpdateSetQueryV2(user, dirtyFields)
+	if err == nil {
+		if builtSetStr != witnessUserStr {
+			t.Errorf("BuildNamedParametersUpdateSetQueryV2() returned a wrong string: %s", builtSetStr)
+			t.FailNow()
+		}
+
+		if len(fields) != len(dirtyFields) {
+			t.Errorf("BuildNamedParametersUpdateSetQueryV2() returned %v changed fields, expected %v", len(fields), len(dirtyFields))
+		}
+	} else {
+		t.Errorf("BuildNamedParametersUpdateSetQueryV2() returned an error: %s", err.Error())
+	}
+
+}
+
 // test cases for GetParameterValues()
 func TestGetParameterValues(t *testing.T) {
 
 	id := 100
 	name := "Pepe"
-	email := "pepe@astropay.com"
+	email := "pepe@lit-night.com"
 	password := "myhashedpassword"
 	country := "UY"
 	active := true
@@ -136,4 +213,125 @@ func TestGetParameterValues(t *testing.T) {
 	if err == nil {
 		t.Errorf("GetParameterValues() should have returned an error")
 	}
+}
+
+// test cases for GetAllFields()
+func TestGetAllFields(t *testing.T) {
+
+	witnessStr := "id_user,name,email,address,password,city,country,active"
+	witnessStrQuoted := "`id_user`,`name`,`email`,`address`,`password`,`city`,`country`,`active`"
+	witnessStrNamedParam := ":id_user,:name,:email,:address,:password,:city,:country,:active"
+	witnessStrPartial := "name,email,address,city,country,active"
+
+	// test obj
+	user := new(User)
+
+	// normal
+	fieldList, err := GetAllFields(user, nil, false, false)
+	if err != nil {
+		t.Error(err.Error())
+	} else {
+		if fieldList != witnessStr {
+			t.Errorf("expected: %s, got: %s", witnessStr, fieldList)
+		}
+	}
+
+	// quoted
+	fieldListQuoted, errQuoted := GetAllFields(user, nil, true, false)
+	if errQuoted != nil {
+		t.Error(errQuoted.Error())
+	} else {
+		if fieldListQuoted != witnessStrQuoted {
+			t.Errorf("expected: %s, got: %s", witnessStrQuoted, fieldListQuoted)
+		}
+	}
+
+	// named parameters
+	fieldListNamedParam, errNamed := GetAllFields(user, nil, false, true)
+	if errNamed != nil {
+		t.Error(errNamed.Error())
+	} else {
+		if fieldListNamedParam != witnessStrNamedParam {
+			t.Errorf("expected: %s, got: %s", witnessStrNamedParam, fieldListNamedParam)
+		}
+	}
+
+	// omit fields
+	fieldListPartial, errOmit := GetAllFields(user, []string{"ID", "Password"}, false, false)
+	if errOmit != nil {
+		t.Error(errOmit.Error())
+	} else {
+		if fieldListPartial != witnessStrPartial {
+			t.Errorf("expected: %s, got: %s", witnessStrPartial, fieldListPartial)
+		}
+	}
+}
+
+func TestGetChangedFields(t *testing.T) {
+
+	name := "Pepe"
+	email := "pepe@lit-night.com"
+	password := "myhashedpassword"
+	address := "Luis Bonavita 1122"
+	city := "Montevideo"
+	country := "UY"
+
+	userOriginal := User{
+		ID:       145,
+		Name:     &name,
+		Email:    &email,
+		Password: &password,
+		Address:  &address,
+		City:     &city,
+		Country:  &country,
+		Active:   true,
+	}
+
+	newPass := "s3cr3!"
+	userNew := User{ID: 145, Name: &name, Email: &email, Password: &newPass, Address: &address, City: &city, Country: &country, Active: true}
+
+	fieldList, _ := GetChangedFields(userOriginal, userNew, nil)
+	if len(fieldList) != 1 {
+		t.Errorf("field list should have 1 element and has %v", len(fieldList))
+	} else {
+		if fieldList[0] != "password" {
+			t.Errorf("expected list element: '%s', got: '%v'", "password", fieldList[0])
+		}
+	}
+
+}
+
+func TestGetChangedFieldsWithPointers(t *testing.T) {
+
+	name := "Pepe"
+	email := "pepe@lit-night.com"
+	password := "myhashedpassword"
+	address := "Luis Bonavita 1122"
+	city := "Montevideo"
+	country := "UY"
+
+	userOriginal := &User{
+		ID:       145,
+		Name:     &name,
+		Email:    &email,
+		Password: &password,
+		Address:  &address,
+		City:     &city,
+		Country:  &country,
+		Active:   true,
+	}
+
+	newPass := "s3cr3!"
+	sameName := "Pepe"
+	userNew := &User{ID: 145, Name: &sameName, Email: &email, Password: &newPass, Address: &address, City: &city, Country: &country, Active: true}
+
+	fieldList, _ := GetChangedFields(userOriginal, userNew, nil)
+	if len(fieldList) != 1 {
+		t.Errorf("field list should have 1 element and has %v", len(fieldList))
+	} else {
+		if fieldList[0] != "password" {
+			t.Errorf("expected list element: '%s', got: '%v'", "password", fieldList[0])
+		}
+	}
+
 }

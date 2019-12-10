@@ -10,20 +10,27 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 	"unsafe"
 )
 
-var letterAndNumberRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+var (
+	letterAndNumberRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+
+	// email validation regular expression
+	emailRegEx = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+
+	randomGenerator = rand.New(rand.NewSource(time.Now().Unix()))
+)
 
 // IsEmailAddress returns true if str seems to be an email address
 func IsEmailAddress(str string) bool {
-	reg := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
-	return reg.MatchString(str)
+	return emailRegEx.MatchString(str)
 }
 
 // UpdateStructFields() errors
 var (
-	ErrNotStruct = errors.New("Destination must by struct or a pointer to struct")
+	ErrNotStruct = errors.New("destination must by struct or a pointer to struct")
 )
 
 // UpdateStructFromMap can be used to update the fields of a structure by sending
@@ -78,10 +85,8 @@ func UpdateStructFromMap(destination interface{}, source map[string]interface{})
 }
 
 // Random generates a random number between min and max.
-// Keep in mind that random seed must be initialized before. Example:
-// 		rand.Seed(time.Now().Unix())
 func Random(min, max int) int {
-	return rand.Intn(max-min) + min
+	return randomGenerator.Intn(max-min) + min
 }
 
 // RandomString generates a random string of the specified length.
@@ -90,7 +95,7 @@ func Random(min, max int) int {
 func RandomString(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterAndNumberRunes[rand.Intn(len(letterAndNumberRunes))]
+		b[i] = letterAndNumberRunes[randomGenerator.Intn(len(letterAndNumberRunes))]
 	}
 	return string(b)
 }
@@ -120,5 +125,75 @@ func MaskString(s string, noMaskLeft, noMaskRight int, maskChar string) (masked 
 	middle := strings.Repeat(maskChar, sLen-len(leftStr)-len(rightStr))
 
 	masked = leftStr + middle + rightStr
+	return
+}
+
+// FindInStringArray searches for the indicated element 'elem' in array 'a'
+func FindInStringArray(elem string, a []string) (e string, found bool) {
+	for i := range a {
+		if a[i] == elem {
+			return elem, true
+		}
+	}
+
+	return "", false
+}
+
+// FindInIntgArray searches for the indicated element 'elem' in array 'a'
+func FindInIntgArray(elem int64, a []int64) (e int64, found bool) {
+	for i := range a {
+		if a[i] == elem {
+			return elem, true
+		}
+	}
+
+	return 0, false
+}
+
+// GetNonNullFields returns an array with all the fields that
+// aren't nil in the structure's instance
+func GetNonNullFields(i interface{}, tagName string) (fields []string) {
+
+	var e reflect.Value
+	v := reflect.ValueOf(i)
+
+	if v.Kind() == reflect.Struct {
+		e = v
+	} else if v.Kind() == reflect.Ptr {
+		e = v.Elem()
+	} else {
+		// non applicable
+		return
+	}
+
+	for f := 0; f < e.NumField(); f++ {
+		process := false
+		fieldInstance := e.Type().Field(f)
+		fieldKind := e.Type().Kind()
+
+		// skip structs and pointers to structs
+		switch fieldKind {
+		case reflect.Ptr:
+			if e.Field(f).Elem().Kind() != reflect.Struct {
+				process = true
+			}
+		default:
+			process = true
+		}
+
+		if process {
+			if !e.Field(f).IsNil() {
+				if tagName != "" {
+					if jsonTag := fieldInstance.Tag.Get(tagName); jsonTag != "" && jsonTag != "-" {
+						fieldName := strings.Split(jsonTag, ",")[0]
+						fields = append(fields, fieldName)
+					}
+				} else {
+					fields = append(fields, fieldInstance.Name)
+				}
+			}
+		}
+	}
+
 	return
 }

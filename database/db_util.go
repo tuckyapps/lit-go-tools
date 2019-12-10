@@ -2,9 +2,12 @@ package database
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/tuckyapps/lit-go-tools/common"
 )
 
 // BuildUpdateSetQuery returns a string that can be used to build a set query, with
@@ -15,7 +18,7 @@ func BuildUpdateSetQuery(obj interface{}, fields []string) (string, error) {
 
 	// obj must be struct or pointer to struct
 	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
-		return "", fmt.Errorf("Invalid obj type '%s'", checkType.Kind().String())
+		return "", fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
 	}
 
 	var objVal reflect.Value
@@ -60,7 +63,7 @@ func BuildUpdateSetQuery(obj interface{}, fields []string) (string, error) {
 				// create field=value string
 				buf.WriteString(fmt.Sprintf(buildFieldSet(colType), colName, fieldValue))
 			} else {
-				return "", fmt.Errorf("Invalid field '%s'", fields[i])
+				return "", fmt.Errorf("invalid field '%s'", fields[i])
 			}
 
 			// add separator
@@ -83,7 +86,7 @@ func BuildParametrizedUpdateSetQuery(obj interface{}, fields []string) (string, 
 
 	// obj must be struct or pointer to struct
 	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
-		return "", fmt.Errorf("Invalid obj type '%s'", checkType.Kind().String())
+		return "", fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
 	}
 
 	var objType reflect.Type
@@ -109,7 +112,7 @@ func BuildParametrizedUpdateSetQuery(obj interface{}, fields []string) (string, 
 				colName := resolveColumnName(field)
 				buf.WriteString(fmt.Sprintf("%s=?", colName))
 			} else {
-				return "", fmt.Errorf("Invalid field '%s'", fields[i])
+				return "", fmt.Errorf("invalid field '%s'", fields[i])
 			}
 
 			// add separator
@@ -124,6 +127,161 @@ func BuildParametrizedUpdateSetQuery(obj interface{}, fields []string) (string, 
 	return "", ErrInvalidFieldList
 }
 
+// BuildNamedParametersUpdateSetQuery returns a string that can be used to build a set query,
+// using named parameters (:param_name)
+func BuildNamedParametersUpdateSetQuery(obj interface{}, fields []string) (string, error) {
+
+	checkType := reflect.TypeOf(obj)
+
+	// obj must be struct or pointer to struct
+	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
+		return "", fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
+	}
+
+	var objType reflect.Type
+	if checkType.Kind() == reflect.Ptr {
+		objType = checkType.Elem()
+	} else {
+		objType = checkType
+	}
+
+	if fields != nil && len(fields) > 0 {
+
+		// prepare sql
+		buf := new(bytes.Buffer)
+		buf.WriteString("SET ")
+
+		for i := 0; i < len(fields); i++ {
+			var (
+				field  reflect.StructField
+				exists bool
+			)
+
+			if field, exists = objType.FieldByName(fields[i]); exists {
+				colName := resolveColumnName(field)
+				buf.WriteString(fmt.Sprintf("%s=:%s", colName, colName))
+			} else {
+				return "", fmt.Errorf("invalid field '%s'", fields[i])
+			}
+
+			// add separator
+			if exists && i < len(fields)-1 {
+				buf.WriteString(",")
+			}
+		}
+
+		return buf.String(), nil
+	}
+
+	return "", ErrInvalidFieldList
+}
+
+// BuildNamedParametersUpdateSetQueryV2 returns a string that can be used to build a set query,
+// using named parameters (:param_name). This new version uses tag name, instead of struct's field
+// name to compare.
+func BuildNamedParametersUpdateSetQueryV2(obj interface{}, fields []string) (string, []string, error) {
+
+	checkType := reflect.TypeOf(obj)
+
+	// obj must be struct or pointer to struct
+	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
+		return "", nil, fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
+	}
+
+	var (
+		objType        reflect.Type
+		finalFieldList []string
+	)
+	if checkType.Kind() == reflect.Ptr {
+		objType = checkType.Elem()
+	} else {
+		objType = checkType
+	}
+
+	if fields != nil && len(fields) > 0 {
+
+		// prepare sql
+		buf := new(bytes.Buffer)
+		buf.WriteString("SET ")
+		fieldCount := 0
+
+		// loop through all fields
+		for i := 0; i < objType.NumField(); i++ {
+			fieldInstance := objType.Field(i)
+			colName := resolveColumnName(fieldInstance)
+
+			if _, found := common.FindInStringArray(colName, fields); found {
+				buf.WriteString(fmt.Sprintf("%s=:%s", colName, colName))
+				buf.WriteString(",")
+
+				fieldCount++
+				finalFieldList = append(finalFieldList, colName)
+			}
+		}
+
+		sql := buf.String()
+		return sql[:len(sql)-1], finalFieldList, nil
+	}
+
+	return "", nil, ErrInvalidFieldList
+}
+
+// GetAllFields returns all the db configured fields for the indicated struct.
+//
+// Those fields indicated in 'skipFields' will not be included in the list; this is useful
+// when dealing with auto incremental fields.
+//
+// Flag 'quoted' makes all the fields to be wrapped as `field_name`; 'asNamedParameter' returns
+// all fields as :field_name, useful for named queries. Flags are exclusive, use one or the other.
+//
+// Note: those fields without the 'db' attribute or marked with a dash (`db:"-"`) are ignored.
+func GetAllFields(obj interface{}, skipFields []string, quoted bool, asNamedParameter bool) (fieldList string, err error) {
+
+	checkType := reflect.TypeOf(obj)
+
+	// obj must be struct or pointer to struct
+	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
+		err = fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
+		return
+	}
+
+	var objType reflect.Type
+
+	if checkType.Kind() == reflect.Ptr {
+		objType = checkType.Elem()
+	} else {
+		objType = checkType
+	}
+
+	buf := new(bytes.Buffer)
+
+	// loop through all fields
+	for i := 0; i < objType.NumField(); i++ {
+		fieldInstance := objType.Field(i)
+
+		if _, found := common.FindInStringArray(fieldInstance.Name, skipFields); !found {
+
+			colName := resolveColumnName(fieldInstance)
+
+			if colName != "-" && colName != "" {
+				if quoted {
+					buf.WriteString("`" + colName + "`" + ",")
+				} else if asNamedParameter {
+					buf.WriteString(":" + colName + ",")
+				} else {
+					buf.WriteString(colName + ",")
+				}
+			}
+
+		}
+	}
+
+	fieldList = buf.String()
+	fieldList = fieldList[:len(fieldList)-1]
+
+	return
+}
+
 // GetParameterValues returns an array that may be used in a parametrized query
 func GetParameterValues(obj interface{}, fields []string, args ...interface{}) ([]interface{}, error) {
 
@@ -131,7 +289,7 @@ func GetParameterValues(obj interface{}, fields []string, args ...interface{}) (
 
 	// obj must be struct or pointer to struct
 	if checkType.Kind() != reflect.Ptr && checkType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("Invalid obj type '%s'", checkType.Kind().String())
+		return nil, fmt.Errorf("invalid obj type '%s'", checkType.Kind().String())
 	}
 
 	var objVal reflect.Value
@@ -173,7 +331,7 @@ func GetParameterValues(obj interface{}, fields []string, args ...interface{}) (
 				// add field value to array
 				params[i] = fieldValue
 			} else {
-				return nil, fmt.Errorf("Invalid field '%s'", fields[i])
+				return nil, fmt.Errorf("invalid field '%s'", fields[i])
 			}
 		}
 
@@ -189,6 +347,85 @@ func GetParameterValues(obj interface{}, fields []string, args ...interface{}) (
 	}
 
 	return nil, ErrInvalidFieldList
+}
+
+// GetChangedFields compare the fieles from source and destination and returns
+// the list of fields that have been changed
+func GetChangedFields(original interface{}, new interface{}, skipFields []string) (fields []string, err error) {
+
+	originalType := reflect.TypeOf(original)
+	newType := reflect.TypeOf(new)
+
+	// check both types are the same
+	if newType.Name() != newType.Name() {
+		err = errors.New("source and destination are not of the same type")
+		return
+	}
+
+	// must be struct or pointer to struct
+	if originalType.Kind() != reflect.Ptr && originalType.Kind() != reflect.Struct {
+		err = fmt.Errorf("invalid obj type '%s'", originalType.Kind().String())
+		return
+	}
+
+	var (
+		originalVal, newVal reflect.Value
+	)
+
+	fields = make([]string, 0)
+
+	if originalType.Kind() == reflect.Ptr {
+		originalVal = reflect.ValueOf(original).Elem()
+		newVal = reflect.ValueOf(new).Elem()
+	} else {
+		originalVal = reflect.ValueOf(original)
+		newVal = reflect.ValueOf(new)
+	}
+
+	// loop through all fields
+	for i := 0; i < originalVal.NumField(); i++ {
+
+		fieldInstance := originalVal.Type().Field(i)
+
+		// println(fieldInstance.Type.Name())
+
+		if _, found := common.FindInStringArray(fieldInstance.Name, skipFields); !found {
+
+			originalField := originalVal.Field(i)
+			newField := newVal.Field(i)
+
+			var (
+				originalFieldValue, newFieldValue interface{}
+			)
+
+			if originalVal.Kind() == reflect.Ptr {
+				originalFieldValue = originalField.Elem().Interface()
+				newFieldValue = newField.Elem().Interface()
+			} else {
+				originalFieldValue = originalField.Interface()
+				newFieldValue = newField.Interface()
+			}
+
+			if originalFieldValue != nil {
+				if newFieldValue != nil {
+					if !reflect.DeepEqual(originalFieldValue, newFieldValue) {
+						if fieldName := resolveColumnName(fieldInstance); fieldName != "" {
+							fields = append(fields, fieldName)
+						}
+					}
+				}
+			} else {
+				if newFieldValue != nil {
+					if fieldName := resolveColumnName(fieldInstance); fieldName != "" {
+						fields = append(fields, fieldName)
+					}
+				}
+			}
+
+		}
+	}
+
+	return
 }
 
 func buildFieldSet(dbType DBType) string {
@@ -209,7 +446,7 @@ func buildFieldSet(dbType DBType) string {
 // resolves the column name associated to a struct's field;
 // tag 'db' is used for compatibility with "github.com/jmoiron/sqlx"
 func resolveColumnName(field reflect.StructField) (col string) {
-	if dbColumn := field.Tag.Get("db"); dbColumn != "" {
+	if dbColumn := field.Tag.Get("db"); dbColumn != "" && dbColumn != "-" {
 		col = dbColumn
 	} else {
 		// TODO: it would be great to use camel case for field names and 'automagically'
