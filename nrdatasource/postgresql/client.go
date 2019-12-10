@@ -18,3 +18,7 @@ func Init(address, username, password string, dbName string) (db *sqlx.DB, err e
 
 	return
 }
+
+func RandFuncName() string {
+	return "rand()"
+}
