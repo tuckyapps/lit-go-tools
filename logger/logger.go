@@ -1,5 +1,7 @@
 package logger
 
+import "net/http"
+
 // Default log levels
 const (
 	LevelError = iota
@@ -20,8 +22,15 @@ type Logger interface {
 	Print(v ...interface{})
 	SetLevel(level int)
 	GetLevel() int
-	LogToSlack(webHook, title, text string)
-	LogErrorToSlack(webHook, title, text string)
+	LogToSlack(webHook, title, text string, settings Settings)
+	LogErrorToSlack(webHook, title, text string, settings Settings)
+}
+
+//Settings interface to be implemented by other project settings.
+type Settings interface {
+	GetSlackEnabled() bool
+	GetHTTPClient() (client *http.Client)
+	GetAppName() string
 }
 
 var (
@@ -35,6 +44,9 @@ func SetLogger(l Logger) {
 
 // GetLogger returns the current logger defined for the service
 func GetLogger() Logger {
+	if logImpl == nil {
+		logImpl = NewSimpleLogger()
+	}
 	return logImpl
 }
 

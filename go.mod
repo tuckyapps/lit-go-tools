@@ -9,6 +9,9 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/newrelic/go-agent v2.16.1+incompatible
+	github.com/parnurzeal/gorequest v0.2.16
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.4.0
 	google.golang.org/appengine v1.6.5 // indirect
+	moul.io/http2curl v1.0.0 // indirect
 )
