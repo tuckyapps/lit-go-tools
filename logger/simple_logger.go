@@ -12,6 +12,7 @@ type SimpleLogger struct {
 	infoLogger  *log.Logger
 	errorLogger *log.Logger
 	level       int
+	LogSettings
 }
 
 // NewSimpleLogger creates a new instance of SimpleLogger.
@@ -89,11 +90,16 @@ func (sl *SimpleLogger) GetLevel() int {
 	return sl.level
 }
 
+// SetLogSettings sets the log settings.
+func (sl *SimpleLogger) SetLogSettings(logSettings LogSettings) {
+	sl.LogSettings = logSettings
+}
+
 // LogToSlack sends a message to the configured channel, if it's enabled
-func (sl *SimpleLogger) LogToSlack(webHook, title, text string, settings Settings) {
+func (sl *SimpleLogger) LogToSlack(webHook, title, text string) {
 	go func() {
-		if settings.GetSlackEnabled() {
-			if err := SendAlert(webHook, "", title, ColorGood, text, settings); err != nil {
+		if sl.LogSettings.GetSlackEnabled() {
+			if err := SendAlert(webHook, "", title, ColorGood, text, sl.LogSettings); err != nil {
 				sl.Errorf("Found an error sending notification to Slack: %s", err)
 			}
 		}
@@ -101,10 +107,10 @@ func (sl *SimpleLogger) LogToSlack(webHook, title, text string, settings Setting
 }
 
 // LogErrorToSlack sends a message formatted as error to the configured channel, if it's enabled
-func (sl *SimpleLogger) LogErrorToSlack(webHook, title, text string, settings Settings) {
+func (sl *SimpleLogger) LogErrorToSlack(webHook, title, text string) {
 	go func() {
-		if settings.GetSlackEnabled() {
-			if err := SendAlert(webHook, "", title, ColorDanger, fmt.Sprintf("`%s`", text), settings); err != nil {
+		if sl.LogSettings.GetSlackEnabled() {
+			if err := SendAlert(webHook, "", title, ColorDanger, fmt.Sprintf("`%s`", text), sl.LogSettings); err != nil {
 				sl.Errorf("Found an error sending notification to Slack: %s", err)
 			}
 		}

@@ -22,12 +22,13 @@ type Logger interface {
 	Print(v ...interface{})
 	SetLevel(level int)
 	GetLevel() int
-	LogToSlack(webHook, title, text string, settings Settings)
-	LogErrorToSlack(webHook, title, text string, settings Settings)
+	LogToSlack(webHook, title, text string)
+	LogErrorToSlack(webHook, title, text string)
+	SetLogSettings(logSettings LogSettings)
 }
 
-//Settings interface to be implemented by other project settings.
-type Settings interface {
+//LogSettings interface to be implemented by other project settings.
+type LogSettings interface {
 	GetSlackEnabled() bool
 	GetHTTPClient() (client *http.Client)
 	GetAppName() string

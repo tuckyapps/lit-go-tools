@@ -16,7 +16,7 @@ const (
 )
 
 // SendAlert sends a notification to the specified slack channel
-func SendAlert(channel, username, title, color, text string, settings Settings) (err error) {
+func SendAlert(channel, username, title, color, text string, settings LogSettings) (err error) {
 
 	if channel != "" {
 
