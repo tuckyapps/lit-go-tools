@@ -22,9 +22,8 @@ type Logger interface {
 	Print(v ...interface{})
 	SetLevel(level int)
 	GetLevel() int
-	LogToSlack(webHook, title, text string)
-	LogErrorToSlack(webHook, title, text string)
-	SetLogSettings(logSettings LogSettings)
+	LogToSlack(webHook, title, text string, logSettings LogSettings)
+	LogErrorToSlack(webHook, title, text string, logSettings LogSettings)
 }
 
 //LogSettings interface to be implemented by other project settings.
