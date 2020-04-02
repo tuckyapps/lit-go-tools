@@ -72,7 +72,7 @@ func (sl *SimpleLogger) Fatal(v ...interface{}) {
 // Fatalf prints the arguments to the error logger, followed by a call to os.Exit(1).
 // Arguments are handled like in fmt.Printf.
 func (sl *SimpleLogger) Fatalf(format string, v ...interface{}) {
-	sl.infoLogger.Fatalf(format, v...)
+	sl.errorLogger.Fatalf(format, v...)
 }
 
 // Print prints the arguemtns to the info logger. It's good for standar logger compatibility
