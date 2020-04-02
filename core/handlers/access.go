@@ -13,7 +13,7 @@ import (
 
 // RequireAccessToken is the function used to handle all the request
 // that requires a token as part of the request.
-func RequireAccessToken(realm string) gin.HandlerFunc {
+func RequireAccessToken(realm string, authServiceURL string, authClient string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// extract token from request
 		token, err := ExtractAuthorizationToken(c.Request, api.AuthorizationMethodBearer)
@@ -35,7 +35,7 @@ func RequireAccessToken(realm string) gin.HandlerFunc {
 		} else {
 
 			// validate extracted token
-			id, errToken := authentication.ValidateToken(token)
+			id, errToken := authentication.ValidateToken(token, authServiceURL, authClient)
 			if errToken != nil {
 
 				switch errToken {

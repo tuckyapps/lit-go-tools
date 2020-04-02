@@ -17,35 +17,18 @@ type authServiceError struct {
 	Description string `json:"error_description"`
 }
 
-// AuthService is the standard auth service implementation
-type AuthService struct {
-	authClient     string
-	authServiceURL string
-}
-
-var (
-	authImpl AuthService
-)
-
-// Init initializes the auth service.
-func Init(authClient string, authServiceURL string) {
-	authImpl.authClient = authClient
-	authImpl.authServiceURL = authServiceURL
-	return
-}
-
 // ValidateToken sends a request to the auth-service and validates that the
 // token is geniune: not in black list and it hasn't expired.
-func ValidateToken(token string) (id string, err error) {
+func ValidateToken(token string, authServiceURL string, authClient string) (id string, err error) {
 
 	log := logger.GetLogger()
-	requestURL := fmt.Sprintf("%s/v1/token/validate", authImpl.authServiceURL)
+	requestURL := fmt.Sprintf("%s/v1/token/validate", authServiceURL)
 	requestBody := fmt.Sprintf(`{"token":"%s"}`, token)
 	decoder := ffjson.NewDecoder()
 
 	// build request
 	request := gorequest.New().Post(requestURL).Send(requestBody).Timeout(api.HTTPTimeout)
-	request.Header.Set("Auth-Client", authImpl.authClient)
+	request.Header.Set("Auth-Client", authClient)
 
 	if response, _, errPost := request.End(); errPost == nil {
 
@@ -82,15 +65,15 @@ func ValidateToken(token string) (id string, err error) {
 }
 
 // GenerateToken connects to the authorization service and retrieves a new token
-func GenerateToken(id string) (token *api.Token, err error) {
+func GenerateToken(id string, authServiceURL string, authClient string) (token *api.Token, err error) {
 
 	log := logger.GetLogger()
-	requestURL := fmt.Sprintf("%s/v1/token/generate", authImpl.authServiceURL)
+	requestURL := fmt.Sprintf("%s/v1/token/generate", authServiceURL)
 	requestBody := fmt.Sprintf(`{"claims":{"grant":"access_token","id":"%s"}}`, id)
 
 	// build request
 	request := gorequest.New().Post(requestURL).Send(requestBody).Timeout(api.HTTPTimeout)
-	request.Header.Set("Auth-Client", authImpl.authClient)
+	request.Header.Set("Auth-Client", authClient)
 
 	if response, _, errRequest := request.End(); errRequest == nil {
 
@@ -116,15 +99,15 @@ func GenerateToken(id string) (token *api.Token, err error) {
 }
 
 // Revoke marks the current token as invalid
-func Revoke(token string) error {
+func Revoke(token string, authServiceURL string, authClient string) error {
 
 	log := logger.GetLogger()
-	requestURL := fmt.Sprintf("%s/v1/token/destroy", authImpl.authServiceURL)
+	requestURL := fmt.Sprintf("%s/v1/token/destroy", authServiceURL)
 	requestBody := fmt.Sprintf(`{"token":"%s"}`, token)
 
 	// build request
 	request := gorequest.New().Post(requestURL).Send(requestBody).Timeout(api.HTTPTimeout)
-	request.Header.Set("Auth-Client", authImpl.authClient)
+	request.Header.Set("Auth-Client", authClient)
 
 	if response, _, errRequest := request.End(); errRequest == nil {
 
