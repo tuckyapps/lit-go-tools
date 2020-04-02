@@ -98,6 +98,10 @@ func (sl *SimpleLogger) SetLogSettings(logSettings LogSettings) {
 // LogToSlack sends a message to the configured channel, if it's enabled
 func (sl *SimpleLogger) LogToSlack(webHook, title, text string) {
 	go func() {
+		if sl.LogSettings == nil {
+			sl.Fatalf("LogSettings have not been initialized.")
+		}
+
 		if sl.LogSettings.GetSlackEnabled() {
 			if err := SendAlert(webHook, "", title, ColorGood, text, sl.LogSettings); err != nil {
 				sl.Errorf("Found an error sending notification to Slack: %s", err)
@@ -109,6 +113,10 @@ func (sl *SimpleLogger) LogToSlack(webHook, title, text string) {
 // LogErrorToSlack sends a message formatted as error to the configured channel, if it's enabled
 func (sl *SimpleLogger) LogErrorToSlack(webHook, title, text string) {
 	go func() {
+		if sl.LogSettings == nil {
+			sl.Fatalf("LogSettings have not been initialized.")
+		}
+
 		if sl.LogSettings.GetSlackEnabled() {
 			if err := SendAlert(webHook, "", title, ColorDanger, fmt.Sprintf("`%s`", text), sl.LogSettings); err != nil {
 				sl.Errorf("Found an error sending notification to Slack: %s", err)
