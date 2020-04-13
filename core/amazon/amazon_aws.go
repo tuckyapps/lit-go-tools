@@ -21,7 +21,8 @@ func InitS3(accessKey string, secretKey string, awsRegion string) (err error) {
 	svc, err = s3client.Init(
 		accessKey,
 		secretKey,
-		awsRegion)
+		awsRegion,
+	)
 
 	return
 }
