@@ -15,17 +15,32 @@ import (
 	"github.com/tuckyapps/lit-go-tools/core/amazon/sesclient"
 )
 
-// Holds the s3 service client
-var s3Service *s3.S3
+var (
+	// S3 Holds the s3 service.
+	S3 s3Service
 
-var sesService *ses.SES
+	// SES Holds the ses service.
+	SES sesService
+)
+
+type s3Service struct {
+}
+
+type sesService struct {
+}
+
+// Holds the s3 service client
+var s3ServiceClient *s3.S3
+
+// Holds the ses service client
+var sesServiceClient *ses.SES
 
 // Init configures AWS service to use s3 and ses with same credentials.
 func Init(accessKey string, secretKey string, awsRegion string) (err error) {
-	err = InitS3(accessKey, secretKey, awsRegion)
+	err = initS3(accessKey, secretKey, awsRegion)
 
 	if err == nil {
-		err = InitSES(accessKey, secretKey, awsRegion)
+		err = initSES(accessKey, secretKey, awsRegion)
 	}
 
 	return
@@ -33,9 +48,9 @@ func Init(accessKey string, secretKey string, awsRegion string) (err error) {
 
 // ------ S3 OPERATIONS ------
 
-// InitS3 configures AWS service to use s3
-func InitS3(accessKey string, secretKey string, awsRegion string) (err error) {
-	s3Service, err = s3client.Init(
+// initS3 configures AWS service to use s3
+func initS3(accessKey string, secretKey string, awsRegion string) (err error) {
+	s3ServiceClient, err = s3client.Init(
 		accessKey,
 		secretKey,
 		awsRegion,
@@ -45,30 +60,30 @@ func InitS3(accessKey string, secretKey string, awsRegion string) (err error) {
 }
 
 // GetS3Object retrieves a file from the indicated bucket
-func GetS3Object(bucket, filePath string) (resp *s3.GetObjectOutput, err error) {
+func (s3s s3Service) GetS3Object(bucket, filePath string) (resp *s3.GetObjectOutput, err error) {
 	params := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filePath),
 	}
 
-	resp, err = s3Service.GetObject(params)
+	resp, err = s3ServiceClient.GetObject(params)
 	return
 }
 
 // DeleteS3Object deletes an existing object from the inidcated bucket
-func DeleteS3Object(bucket, filePath string) (err error) {
+func (s3s s3Service) DeleteS3Object(bucket, filePath string) (err error) {
 	params := &s3.DeleteObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filePath),
 	}
 
-	_, err = s3Service.DeleteObject(params)
+	_, err = s3ServiceClient.DeleteObject(params)
 	return
 }
 
 // PutS3Object stores the file into the indicated bucket. Value from 'path' allows to store
 // the file into a specific folder
-func PutS3Object(bucket, path string, fileName string, file multipart.File, fileHeader *multipart.FileHeader) (storedFileName string, err error) {
+func (s3s s3Service) PutS3Object(bucket, path string, fileName string, file multipart.File, fileHeader *multipart.FileHeader) (storedFileName string, err error) {
 
 	size := fileHeader.Size
 	buffer := make([]byte, size)
@@ -100,7 +115,7 @@ func PutS3Object(bucket, path string, fileName string, file multipart.File, file
 		// ServerSideEncryption: aws.String(s3.ServerSideEncryptionAes256),
 	}
 
-	if _, err = s3Service.PutObject(s3Object); err == nil {
+	if _, err = s3ServiceClient.PutObject(s3Object); err == nil {
 		storedFileName = fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucket, filePath[1:])
 	}
 
@@ -139,9 +154,9 @@ type EmailTemplate struct {
 	ReplyTo      []string
 }
 
-// InitSES configures AWS service to use SES
-func InitSES(accessKey string, secretKey string, awsRegion string) (err error) {
-	sesService, err = sesclient.Init(
+// initSES configures AWS service to use SES
+func initSES(accessKey string, secretKey string, awsRegion string) (err error) {
+	sesServiceClient, err = sesclient.Init(
 		accessKey,
 		secretKey,
 		awsRegion)
@@ -150,7 +165,7 @@ func InitSES(accessKey string, secretKey string, awsRegion string) (err error) {
 }
 
 // SendEmail an email.
-func SendEmail(e *Email) error {
+func (sess sesService) SendEmail(e *Email) error {
 	if e.HTML == "" {
 		e.HTML = e.Text
 	}
@@ -176,7 +191,7 @@ func SendEmail(e *Email) error {
 		ToAddresses: aws.StringSlice(e.To),
 	}
 
-	_, err := sesService.SendEmail(&ses.SendEmailInput{
+	_, err := sesServiceClient.SendEmail(&ses.SendEmailInput{
 		Source:           &e.From,
 		Destination:      dest,
 		Message:          msg,
@@ -187,13 +202,13 @@ func SendEmail(e *Email) error {
 }
 
 // SendTemplateEmail is used to send an email based on a template.
-func SendTemplateEmail(et *EmailTemplate) error {
+func (sess sesService) SendTemplateEmail(et *EmailTemplate) error {
 
 	dest := &ses.Destination{
 		ToAddresses: aws.StringSlice(et.To),
 	}
 
-	_, err := sesService.SendTemplatedEmail(&ses.SendTemplatedEmailInput{
+	_, err := sesServiceClient.SendTemplatedEmail(&ses.SendTemplatedEmailInput{
 		Source:           &et.From,
 		Destination:      dest,
 		ReplyToAddresses: aws.StringSlice(et.ReplyTo),
