@@ -20,5 +20,6 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/stretchr/testify v1.5.1
 	google.golang.org/appengine v1.6.5 // indirect
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	moul.io/http2curl v1.0.0 // indirect
 )
