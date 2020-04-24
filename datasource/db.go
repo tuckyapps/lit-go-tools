@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/tuckyapps/lit-go-tools/datasource/mysql"
@@ -13,7 +14,11 @@ import (
 var (
 	ErrNoDatabase         = errors.New("no database found with the specified name")
 	ErrDriverNotSupported = errors.New("database driver not supported")
+	syncInstance          = new(sync.Mutex)
+	instance              InMemoryDB
 )
+
+var ()
 
 // DBAccess is the common interface for data access definitions
 type DBAccess interface {
@@ -152,4 +157,29 @@ func (g *Generic) RandomFuncName() (fName string) {
 		fName = g.randFuncName
 	}
 	return
+}
+
+//BuildNewInMemoryConnection returns an in-memory database connection
+func BuildNewInMemoryConnection(address string, password string) InMemoryDB {
+	if instance == nil {
+
+		syncInstance.Lock()
+		defer syncInstance.Unlock()
+
+		if instance == nil {
+			instance = &Redis{
+				Address:  address,
+				Password: password,
+			}
+		}
+
+	}
+	return instance
+}
+
+// ResetInMemoryDb is used to erase instance.
+func ResetInMemoryDb() {
+	syncInstance.Lock()
+	defer syncInstance.Unlock()
+	instance = nil
 }
