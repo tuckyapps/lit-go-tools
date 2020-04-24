@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/tuckyapps/lit-go-tools/datasource/mysql"
 	"github.com/tuckyapps/lit-go-tools/datasource/postgresql"
+	"github.com/tuckyapps/lit-go-tools/datasource/redis"
 	"github.com/tuckyapps/lit-go-tools/datasource/sqlite3"
 )
 
@@ -167,7 +168,7 @@ func BuildNewInMemoryConnection(address string, password string) InMemoryDB {
 		defer syncInstance.Unlock()
 
 		if instance == nil {
-			instance = &Redis{
+			instance = &redis.Redis{
 				Address:  address,
 				Password: password,
 			}
